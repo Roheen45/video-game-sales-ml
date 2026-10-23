@@ -1,54 +1,80 @@
-"""Train two small models from the supplied vgsales.csv dataset."""
+"""Train sales regression and sales-level classification models."""
 from pathlib import Path
-from zipfile import ZipFile
 
 import joblib
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.ensemble import RandomForestClassifier
 
 ROOT = Path(__file__).resolve().parent
-ZIP_PATH = ROOT / "vgsales.csv.zip"
 DATA_PATH = ROOT / "vgsales.csv"
 MODELS = ROOT / "models"
+SALES_THRESHOLD = 1.0
+RANDOM_STATE = 42
+FEATURES = ["Platform", "Genre", "Year"]
+CATEGORICAL_FEATURES = ["Platform", "Genre"]
+NUMERIC_FEATURES = ["Year"]
 
-if ZIP_PATH.exists():
-    with ZipFile(ZIP_PATH) as archive:
-        archive.extract("vgsales.csv", ROOT)
-if not DATA_PATH.exists():
-    raise FileNotFoundError("Put vgsales.csv.zip beside this script and run it again.")
 
-df = pd.read_csv(DATA_PATH).dropna(subset=["Global_Sales", "NA_Sales", "EU_Sales", "JP_Sales", "Other_Sales"])
+def make_preprocessor():
+    categorical = Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore")),
+    ])
+    numeric = Pipeline([("imputer", SimpleImputer(strategy="median"))])
+    return ColumnTransformer([
+        ("categorical", categorical, CATEGORICAL_FEATURES),
+        ("numeric", numeric, NUMERIC_FEATURES),
+    ])
 
-# Global_Sales is the sum of the four regional sales columns, so this is a
-# transparent baseline demonstrating regression (rather than a real forecast).
-reg_features = ["NA_Sales", "EU_Sales", "JP_Sales", "Other_Sales"]
-Xr_train, Xr_test, yr_train, yr_test = train_test_split(df[reg_features], df["Global_Sales"], test_size=0.2, random_state=42)
-regression = LinearRegression().fit(Xr_train, yr_train)
-r2 = r2_score(yr_test, regression.predict(Xr_test))
 
-# Classification uses platform + year to predict the game genre.
-genre_df = df.dropna(subset=["Genre", "Platform", "Year"])
-Xc = genre_df[["Platform", "Year"]]
-yc = genre_df["Genre"]
-Xc_train, Xc_test, yc_train, yc_test = train_test_split(Xc, yc, test_size=0.2, random_state=42, stratify=yc)
-preprocess = ColumnTransformer([
-    ("platform", OneHotEncoder(handle_unknown="ignore"), ["Platform"]),
-    ("year", SimpleImputer(strategy="median"), ["Year"]),
-])
-classification = make_pipeline(preprocess, RandomForestClassifier(n_estimators=150, random_state=42, class_weight="balanced"))
-classification.fit(Xc_train, yc_train)
-accuracy = accuracy_score(yc_test, classification.predict(Xc_test))
+def main():
+    if not DATA_PATH.exists():
+        raise FileNotFoundError("Put vgsales.csv beside this script and run it again.")
 
-MODELS.mkdir(exist_ok=True)
-joblib.dump(regression, MODELS / "regression.joblib")
-joblib.dump(classification, MODELS / "classification.joblib")
-print(f"Regression R²: {r2:.4f}")
-print(f"Classification accuracy: {accuracy:.4f}")
-print(f"Saved models in {MODELS}")
+    df = pd.read_csv(DATA_PATH).dropna(subset=["Global_Sales"])
+    X = df[FEATURES]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, df["Global_Sales"], test_size=0.2, random_state=RANDOM_STATE
+    )
+    regression = Pipeline([
+        ("preprocess", make_preprocessor()),
+        ("model", GradientBoostingRegressor(
+            n_estimators=200, max_depth=2, random_state=RANDOM_STATE,
+        )),
+    ])
+    regression.fit(X_train, y_train)
+    regression_r2 = r2_score(y_test, regression.predict(X_test))
+
+    # The target defines labels only. Global_Sales is never part of X/features.
+    labels = (df["Global_Sales"] >= SALES_THRESHOLD).map({True: "High Sales", False: "Low Sales"})
+    X_train_c, X_test_c, y_train_c, y_test_c = train_test_split(
+        X, labels, test_size=0.2, random_state=RANDOM_STATE, stratify=labels
+    )
+    classification = Pipeline([
+        ("preprocess", make_preprocessor()),
+        ("model", RandomForestClassifier(
+            n_estimators=300, min_samples_leaf=2, random_state=RANDOM_STATE,
+            class_weight="balanced", n_jobs=-1,
+        )),
+    ])
+    classification.fit(X_train_c, y_train_c)
+    classification_accuracy = accuracy_score(y_test_c, classification.predict(X_test_c))
+
+    MODELS.mkdir(exist_ok=True)
+    joblib.dump(regression, MODELS / "regression.joblib")
+    joblib.dump(classification, MODELS / "classification.joblib")
+    print(f"Sales threshold: {SALES_THRESHOLD:.1f} million (High Sales is >= threshold)")
+    print(f"Regression held-out test R2: {regression_r2:.4f}")
+    print(f"Classification held-out test accuracy: {classification_accuracy:.4f}")
+    print(f"Saved models in {MODELS}")
+
+
+if __name__ == "__main__":
+    main()

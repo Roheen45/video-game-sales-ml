@@ -19,33 +19,39 @@
 </head>
 <body>
   <h1>Video game sales ML demo</h1>
-  <p class="intro">Try two small models trained from the supplied video game sales dataset.</p>
+  <p class="intro">Estimate a game's global sales or predict its sales group from its platform, genre, and release year.</p>
   <div class="grid">
     <section>
       <h2>Estimate global sales</h2>
-      <p class="note">Enter regional sales in millions. The model estimates global sales.</p>
+      <p class="note">Inputs describe the game. Regional sales figures are not used.</p>
       <form id="regression-form">
-        <label>North America sales <input name="na_sales" type="number" min="0" step="0.01" value="1.2" required></label>
-        <label>Europe sales <input name="eu_sales" type="number" min="0" step="0.01" value="0.8" required></label>
-        <label>Japan sales <input name="jp_sales" type="number" min="0" step="0.01" value="0.3" required></label>
-        <label>Other regions sales <input name="other_sales" type="number" min="0" step="0.01" value="0.2" required></label>
+        <label>Platform <select name="platform" required>
+          <option>PS2</option><option>DS</option><option>Wii</option><option>PS3</option><option>X360</option><option>PS</option><option>GBA</option><option>PS4</option><option>3DS</option><option>PC</option><option>Switch</option>
+        </select></label>
+        <label>Genre <select name="genre" required>
+          <option>Action</option><option>Sports</option><option>Misc</option><option>Role-Playing</option><option>Shooter</option><option>Adventure</option><option>Racing</option><option>Platform</option><option>Simulation</option><option>Fighting</option><option>Strategy</option><option>Puzzle</option>
+        </select></label>
+        <label>Release year <input name="year" type="number" min="1980" max="2035" step="1" value="2010" required></label>
         <button>Predict sales</button><output aria-live="polite"></output>
       </form>
     </section>
     <section>
-      <h2>Predict a game genre</h2>
-      <p class="note">Choose a platform and release year.</p>
+      <h2>Predict sales group</h2>
+      <p class="note">High Sales means at least 1.0 million copies; below that is Low Sales.</p>
       <form id="classification-form">
-        <label>Platform <select name="platform">
+        <label>Platform <select name="platform" required>
           <option>PS2</option><option>DS</option><option>Wii</option><option>PS3</option><option>X360</option><option>PS</option><option>GBA</option><option>PS4</option><option>3DS</option><option>PC</option><option>Switch</option>
         </select></label>
-        <label>Release year <input name="year" type="number" min="1980" max="2035" value="2010" required></label>
-        <button>Predict genre</button><output aria-live="polite"></output>
+        <label>Genre <select name="genre" required>
+          <option>Action</option><option>Sports</option><option>Misc</option><option>Role-Playing</option><option>Shooter</option><option>Adventure</option><option>Racing</option><option>Platform</option><option>Simulation</option><option>Fighting</option><option>Strategy</option><option>Puzzle</option>
+        </select></label>
+        <label>Release year <input name="year" type="number" min="1980" max="2035" step="1" value="2010" required></label>
+        <button>Predict sales group</button><output aria-live="polite"></output>
       </form>
     </section>
   </div>
   <script>
-    async function submitPrediction(form, endpoint, transform) {
+    async function submitPrediction(form, endpoint, transform, formatResult) {
       const output = form.querySelector('output');
       const button = form.querySelector('button');
       const body = transform(Object.fromEntries(new FormData(form)));
@@ -54,15 +60,18 @@
         const response = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail?.[0]?.msg || 'Request failed');
-        output.textContent = endpoint.endsWith('regression') ? `Estimated global sales: ${result.prediction} million` : `Predicted genre: ${result.prediction}`;
+        output.textContent = formatResult(result);
       } catch (error) { output.textContent = `Error: ${error.message}. Is the API running?`; }
       finally { button.disabled = false; }
     }
+    function formValues(values) { return {...values, year:Number(values.year)}; }
     document.querySelector('#regression-form').addEventListener('submit', event => {
-      event.preventDefault(); submitPrediction(event.currentTarget, '/predict/regression', values => Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value)])));
+      event.preventDefault(); submitPrediction(event.currentTarget, '/predict/regression', formValues,
+        result => `Estimated global sales: ${result.prediction} million copies`);
     });
     document.querySelector('#classification-form').addEventListener('submit', event => {
-      event.preventDefault(); submitPrediction(event.currentTarget, '/predict/classification', values => ({...values, year:Number(values.year)}));
+      event.preventDefault(); submitPrediction(event.currentTarget, '/predict/classification', formValues,
+        result => `Predicted group: ${result.prediction}`);
     });
   </script>
 </body>
