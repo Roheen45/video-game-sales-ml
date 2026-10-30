@@ -1,33 +1,29 @@
-# Video Game Sales ML demo
+# Arcade Lab — ML model explorer
 
-This project uses the included `vgsales.csv` dataset to demonstrate two machine-learning tasks. It predicts a game's `Global_Sales` from its platform, genre, and release year, and separately classifies the game as **Low Sales** or **High Sales**. Regional sales columns are deliberately excluded because they directly reveal the global total.
+A small FastAPI and HTML app for comparing regression and classification models on the included Video Game Sales dataset.
 
-## Setup and run
+## Run it
 
-Run these commands from this folder with Python installed:
+From this folder, run:
 
-1. (Optional) Create and activate a virtual environment.
-2. Install packages: `python -m pip install -r requirements.txt`
-3. Train both models and report held-out metrics: `python train_models.py`
-4. Start the API and webpage: `uvicorn main:app --reload`
-5. Open <http://127.0.0.1:8000>. Interactive API documentation is at <http://127.0.0.1:8000/docs>.
+```powershell
+python -m pip install -r requirements.txt
+python train_models.py
+uvicorn main:app --reload
+```
 
-The dataset is already provided as `vgsales.csv`; training does not need to extract or replace it. The models are saved locally as `models/regression.joblib` and `models/classification.joblib`.
+Open <http://127.0.0.1:8000>. Interactive API docs are at <http://127.0.0.1:8000/docs>.
 
-## Models and inputs
+## Included techniques
 
-Both endpoints accept JSON with `platform`, `genre`, and `year`.
+- **Regression:** simple linear regression, multiple linear regression, polynomial regression (degree 2), and Lasso.
+- **Classification:** logistic regression, random forest, decision tree, Naive Bayes, and linear SVM. These predict game genre from platform and year.
+- **Text classification:** TF-IDF with a linear SVM predicts genre from the game title.
 
-- `POST /predict/regression` estimates `Global_Sales` in millions of copies. A preprocessing pipeline imputes missing years with the training median and one-hot encodes platform and genre. A gradient boosting regressor predicts the continuous target.
-- `POST /predict/classification` returns `Low Sales` when `Global_Sales < 1.0` million and `High Sales` when it is at least 1.0 million. `Global_Sales` is used only to create the target labels, never as an input. The classifier is a balanced random forest with the same preprocessing.
+Choose a regression or classification model from its dropdown. Regression uses the four regional sales values. Classification uses the selected platform and year; TF-IDF uses the entered game title. Held-out test scores are shown below the forms and saved to `models/metrics.json`. All fitted estimators are saved as joblib files in `models/`.
 
-Both models use an 80/20 train/test split with random seed 42. Classification preserves the class proportions with stratification. Metrics below are from the held-out test set, not the training data.
+## Dataset and evaluation
 
-## Evaluation results
+The supplied `vgsales.csv` has 16,598 games from 1980 through 2020. Models use an 80/20 train/test split with random seed 42. Game sales figures in the regression task are measured in millions of copies. Global sales is the sum of the four regional sales fields, so using all four makes a strong, largely arithmetic baseline; treat it as a regression demonstration rather than an unknown-sales forecast. PS5 and Switch are available in the platform menu but have no examples in this dataset, so predictions for them are less reliable. Genre is imbalanced, so classification accuracy is a simple comparison metric and does not describe every genre equally well.
 
-Results from `python train_models.py` on the included 16,598-row dataset:
-
-- Regression R²: **0.0173**
-- Classification accuracy: **0.6569** (65.69%)
-
-The regression result is weak: platform, genre, and year alone explain little of the variation in sales, especially for unusually popular games. Treat the prediction as a demonstration, not a reliable sales forecast. Classification accuracy is also a baseline result and should be interpreted with the stated 1.0-million threshold.
+See [REPORT.md](REPORT.md) for the short project report and the measured scores.

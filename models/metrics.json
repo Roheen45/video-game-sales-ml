@@ -1,0 +1,16 @@
+{
+  "regression": {
+    "linear": 0.9247,
+    "multiple": 1.0,
+    "polynomial": 1.0,
+    "lasso": 0.9999
+  },
+  "classification": {
+    "logistic": 0.1834,
+    "random_forest": 0.162,
+    "decision_tree": 0.1632,
+    "naive_bayes": 0.2208,
+    "svm": 0.1445,
+    "tfidf": 0.7492
+  }
+}

@@ -3,76 +3,213 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Video Game Sales · ML demo</title>
+  <title>Video Game Sales ML Demo</title>
   <style>
-    :root { font-family: system-ui, sans-serif; color: #172033; background: #f4f6fb; }
-    body { max-width: 880px; margin: 48px auto; padding: 0 20px; }
-    h1 { margin-bottom: 8px; } .intro { color: #596579; margin-bottom: 28px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 18px; }
-    section { background: white; border: 1px solid #e0e5ee; border-radius: 14px; padding: 22px; box-shadow: 0 8px 24px #1c2d4a0b; }
-    label { display:block; margin: 12px 0 5px; font-size: .92rem; }
-    input, select, button { box-sizing: border-box; width:100%; padding: 10px; border:1px solid #cbd3e0; border-radius:8px; font:inherit; }
-    button { margin-top:16px; border:0; background:#315be8; color:white; font-weight:650; cursor:pointer; }
-    button:hover { background:#2448c6; } output { display:block; min-height:24px; margin-top:14px; color:#24543d; font-weight:600; }
-    .note { font-size:.86rem; color:#687387; }
+    :root { font-family: Arial, sans-serif; color: #172033; background: #f4f6fb; }
+    * { box-sizing: border-box; }
+    body { max-width: 900px; margin: 42px auto; padding: 0 20px; }
+    h1 { margin-bottom: 8px; }
+    .intro { color: #596579; margin-bottom: 26px; }
+    .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { padding: 22px; background: white; border: 1px solid #e0e5ee; border-radius: 12px; }
+    .card h2 { margin-top: 0; }
+    .note { color: #687387; font-size: 13px; line-height: 1.5; }
+    label { display: block; margin: 12px 0 5px; font-size: 14px; }
+    input, select, button { width: 100%; padding: 10px; border: 1px solid #cbd3e0; border-radius: 7px; font: inherit; }
+    button { margin-top: 16px; border: 0; background: #315be8; color: white; font-weight: bold; cursor: pointer; }
+    button:hover { background: #2448c6; }
+    button:disabled { opacity: .65; cursor: wait; }
+    output { display: block; min-height: 24px; margin-top: 14px; color: #24543d; font-weight: bold; }
+    .scores { margin-top: 18px; }
+    .score-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .score-list { padding-left: 20px; color: #596579; line-height: 1.8; }
+    [hidden] { display: none !important; }
+    @media (max-width: 680px) {
+      .cards, .score-columns { grid-template-columns: 1fr; }
+      body { margin-top: 24px; }
+    }
   </style>
 </head>
 <body>
-  <h1>Video game sales ML demo</h1>
-  <p class="intro">Estimate a game's global sales or predict its sales group from its platform, genre, and release year.</p>
-  <div class="grid">
-    <section>
-      <h2>Estimate global sales</h2>
-      <p class="note">Inputs describe the game. Regional sales figures are not used.</p>
+  <h1>Video Game Sales ML Demo</h1>
+  <p class="intro">Choose a model, enter a few details, and see its prediction.</p>
+
+  <div class="cards">
+    <section class="card">
+      <h2>Predict global sales</h2>
+      <p class="note">Enter regional sales in millions and choose a regression model.</p>
       <form id="regression-form">
-        <label>Platform <select name="platform" required>
-          <option>PS2</option><option>DS</option><option>Wii</option><option>PS3</option><option>X360</option><option>PS</option><option>GBA</option><option>PS4</option><option>3DS</option><option>PC</option><option>Switch</option>
-        </select></label>
-        <label>Genre <select name="genre" required>
-          <option>Action</option><option>Sports</option><option>Misc</option><option>Role-Playing</option><option>Shooter</option><option>Adventure</option><option>Racing</option><option>Platform</option><option>Simulation</option><option>Fighting</option><option>Strategy</option><option>Puzzle</option>
-        </select></label>
-        <label>Release year <input name="year" type="number" min="1980" max="2035" step="1" value="2010" required></label>
-        <button>Predict sales</button><output aria-live="polite"></output>
+        <label for="regression-model">Regression model</label>
+        <select id="regression-model" name="model">
+          <option value="multiple">Multiple linear regression</option>
+          <option value="linear">Linear regression</option>
+          <option value="polynomial">Polynomial regression</option>
+          <option value="lasso">Lasso regression</option>
+        </select>
+
+        <label for="na-sales">North America sales</label>
+        <input id="na-sales" name="na_sales" type="number" min="0" step="0.01" value="1.2" required>
+        <label for="eu-sales">Europe sales</label>
+        <input id="eu-sales" name="eu_sales" type="number" min="0" step="0.01" value="0.8" required>
+        <label for="jp-sales">Japan sales</label>
+        <input id="jp-sales" name="jp_sales" type="number" min="0" step="0.01" value="0.3" required>
+        <label for="other-sales">Other regions sales</label>
+        <input id="other-sales" name="other_sales" type="number" min="0" step="0.01" value="0.2" required>
+        <button type="submit">Predict sales</button>
+        <output aria-live="polite"></output>
       </form>
     </section>
-    <section>
-      <h2>Predict sales group</h2>
-      <p class="note">High Sales means at least 1.0 million copies; below that is Low Sales.</p>
+
+    <section class="card">
+      <h2>Predict a game's genre</h2>
+      <p class="note" id="classification-help">Select a platform and release year, then choose a classifier.</p>
       <form id="classification-form">
-        <label>Platform <select name="platform" required>
-          <option>PS2</option><option>DS</option><option>Wii</option><option>PS3</option><option>X360</option><option>PS</option><option>GBA</option><option>PS4</option><option>3DS</option><option>PC</option><option>Switch</option>
-        </select></label>
-        <label>Genre <select name="genre" required>
-          <option>Action</option><option>Sports</option><option>Misc</option><option>Role-Playing</option><option>Shooter</option><option>Adventure</option><option>Racing</option><option>Platform</option><option>Simulation</option><option>Fighting</option><option>Strategy</option><option>Puzzle</option>
-        </select></label>
-        <label>Release year <input name="year" type="number" min="1980" max="2035" step="1" value="2010" required></label>
-        <button>Predict sales group</button><output aria-live="polite"></output>
+        <label for="classification-model">Classification model</label>
+        <select id="classification-model" name="model">
+          <option value="logistic">Logistic regression</option>
+          <option value="random_forest">Random forest</option>
+          <option value="decision_tree">Decision tree</option>
+          <option value="naive_bayes">Naive Bayes</option>
+          <option value="svm">SVM</option>
+          <option value="tfidf">TF-IDF from game title</option>
+        </select>
+
+        <div id="game-details">
+          <label for="platform">Platform</label>
+          <select id="platform" name="platform">
+            <option value="PS4">PlayStation 4 (PS4)</option>
+            <option value="PS5">PlayStation 5 (PS5)</option>
+            <option value="PS3">PlayStation 3 (PS3)</option>
+            <option value="PS2">PlayStation 2 (PS2)</option>
+            <option value="XOne">Xbox One</option>
+            <option value="X360">Xbox 360</option>
+            <option value="XB">Xbox</option>
+            <option value="Switch">Nintendo Switch</option>
+            <option value="Wii">Nintendo Wii</option>
+            <option value="WiiU">Nintendo Wii U</option>
+            <option value="3DS">Nintendo 3DS</option>
+            <option value="DS">Nintendo DS</option>
+            <option value="PC">PC</option>
+            <option value="PSP">PlayStation Portable</option>
+            <option value="PSV">PlayStation Vita</option>
+          </select>
+          <p class="note">The dataset ends in 2020 and has no PS5 or Switch examples, so predictions for those platforms are less reliable.</p>
+          <label for="year">Release year</label>
+          <input id="year" name="year" type="number" min="1980" max="2020" value="2016">
+        </div>
+
+        <div id="title-input" hidden>
+          <label for="game-title">Game title</label>
+          <input id="game-title" name="name" placeholder="For example, Super Mario Galaxy">
+        </div>
+
+        <button type="submit">Predict genre</button>
+        <output aria-live="polite"></output>
       </form>
     </section>
   </div>
+
+  <section class="card scores">
+    <h2>Model scores</h2>
+    <p class="note">R² measures regression results. Accuracy measures classification results.</p>
+    <div class="score-columns">
+      <div><h3>Regression · R²</h3><ul class="score-list" id="regression-scores">Loading...</ul></div>
+      <div><h3>Classification · accuracy</h3><ul class="score-list" id="classification-scores">Loading...</ul></div>
+    </div>
+  </section>
+
   <script>
-    async function submitPrediction(form, endpoint, transform, formatResult) {
-      const output = form.querySelector('output');
-      const button = form.querySelector('button');
-      const body = transform(Object.fromEntries(new FormData(form)));
-      output.textContent = 'Predicting…'; button.disabled = true;
+    const modelNames = {
+      linear: "Linear", multiple: "Multiple linear", polynomial: "Polynomial",
+      lasso: "Lasso", logistic: "Logistic", random_forest: "Random forest",
+      decision_tree: "Decision tree", naive_bayes: "Naive Bayes", svm: "SVM", tfidf: "TF-IDF"
+    };
+
+    // Show scores saved by the training script.
+    async function loadScores() {
       try {
-        const response = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.detail?.[0]?.msg || 'Request failed');
-        output.textContent = formatResult(result);
-      } catch (error) { output.textContent = `Error: ${error.message}. Is the API running?`; }
-      finally { button.disabled = false; }
+        const response = await fetch("/metrics");
+        const scores = await response.json();
+        showScoreList("#regression-scores", scores.regression);
+        showScoreList("#classification-scores", scores.classification);
+      } catch {
+        document.querySelector("#regression-scores").textContent = "Could not load scores.";
+        document.querySelector("#classification-scores").textContent = "Could not load scores.";
+      }
     }
-    function formValues(values) { return {...values, year:Number(values.year)}; }
-    document.querySelector('#regression-form').addEventListener('submit', event => {
-      event.preventDefault(); submitPrediction(event.currentTarget, '/predict/regression', formValues,
+
+    function showScoreList(elementId, scores) {
+      document.querySelector(elementId).innerHTML = Object.entries(scores).map(([model, score]) =>
+        `<li>${modelNames[model]}: ${(score * 100).toFixed(1)}%</li>`
+      ).join("");
+    }
+
+    // TF-IDF needs a game title; the other classifiers use platform and year.
+    function updateClassificationForm() {
+      const isTextModel = document.querySelector("#classification-model").value === "tfidf";
+      document.querySelector("#game-details").hidden = isTextModel;
+      document.querySelector("#title-input").hidden = !isTextModel;
+      document.querySelector("#platform").required = !isTextModel;
+      document.querySelector("#year").required = !isTextModel;
+      document.querySelector("#game-title").required = isTextModel;
+      document.querySelector("#classification-help").textContent = isTextModel
+        ? "Enter a game title. TF-IDF uses words in the title to predict genre."
+        : "Select a platform and release year, then choose a classifier.";
+    }
+
+    // Send values from either form to its FastAPI endpoint.
+    async function sendPrediction(form, endpoint, data, formatResult) {
+      const button = form.querySelector("button");
+      const output = form.querySelector("output");
+      button.disabled = true;
+      output.textContent = "Predicting...";
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Prediction failed");
+        output.textContent = formatResult(result);
+      } catch (error) {
+        output.textContent = `Error: ${error.message}`;
+      }
+
+      button.disabled = false;
+    }
+
+    document.querySelector("#regression-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const data = {
+        model: values.model,
+        na_sales: Number(values.na_sales),
+        eu_sales: Number(values.eu_sales),
+        jp_sales: Number(values.jp_sales),
+        other_sales: Number(values.other_sales)
+      };
+      sendPrediction(event.currentTarget, "/predict/regression", data,
         result => `Estimated global sales: ${result.prediction} million copies`);
     });
-    document.querySelector('#classification-form').addEventListener('submit', event => {
-      event.preventDefault(); submitPrediction(event.currentTarget, '/predict/classification', formValues,
-        result => `Predicted group: ${result.prediction}`);
+
+    document.querySelector("#classification-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const data = {
+        model: values.model,
+        platform: values.platform || "PS4",
+        year: Number(values.year || 2016),
+        name: values.name || ""
+      };
+      sendPrediction(event.currentTarget, "/predict/classification", data,
+        result => `Predicted genre: ${result.prediction}`);
     });
+
+    document.querySelector("#classification-model").addEventListener("change", updateClassificationForm);
+    updateClassificationForm();
+    loadScores();
   </script>
 </body>
 </html>
